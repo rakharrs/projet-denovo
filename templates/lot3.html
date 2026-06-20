@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Lot 3 · Assemblage par Bloom Filter{% endblock %}
+{% block content %}
+<div class="lot-eyebrow">Lot 3</div>
+<h1>Assemblage par Bloom Filter (Filtre de Bloom)</h1>
+
+<p class="lede">
+  Réalisez un assemblage de novo en traversant un graphe de de Bruijn 
+  conceptuel via un Filtre de Bloom. Approche type Minia 2.
+</p>
+
+<form method="POST" enctype="multipart/form-data" class="form-section">
+  <div class="form-group">
+    <label for="file">Fichier FASTQ/FQ:</label>
+    <input type="file" id="file" name="file" accept=".fastq,.fq,.txt" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="k">Longueur k (k-mers):</label>
+    <input type="number" id="k" name="k" value="31" min="5" max="127">
+  </div>
+  
+  <div class="form-group">
+    <label for="solid_threshold">Seuil de solidité (fréquence minimale):</label>
+    <input type="number" id="solid_threshold" name="solid_threshold" value="2" min="1" max="100">
+  </div>
+  
+  <button type="submit" class="btn">Assembler</button>
+</form>
+
+<div style="margin-top: 2rem; padding: 1rem; background: #f0f8ff; border-radius: 4px;">
+  <strong>💡 Astuce:</strong> Vous pouvez télécharger le toy dataset depuis la page d'accueil
+  ou <a href="{{ url_for('lot3_demo') }}">lancer directement la démo</a>.
+</div>
+
+{% if error %}
+  <div class="error-box">
+    <strong>Erreur:</strong> {{ error }}
+  </div>
+{% endif %}
+
+{% if result %}
+  <div class="result-section">
+    <h2>Résultats d'assemblage</h2>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Nombre de contigs</div>
+        <div class="stat-value">{{ result.num_contigs }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">K-mers solides</div>
+        <div class="stat-value">{{ result.num_solid_kmers }}</div>
+      </div>
+      {% if result.identity is defined %}
+        <div class="stat-card">
+          <div class="stat-label">Identité (plus grand contig)</div>
+          <div class="stat-value">{{ "%.1f"|format(result.identity) }}%</div>
+        </div>
+      {% endif %}
+    </div>
+    
+    <h3>Paramètres</h3>
+    <ul>
+      <li><strong>k:</strong> {{ result.k }}</li>
+      <li><strong>Seuil de solidité:</strong> {{ result.solid_threshold }}</li>
+    </ul>
+    
+    <h3>Contigs assemblés</h3>
+    {% if result.contigs %}
+      {% for contig in result.contigs %}
+        <div class="contig-card">
+          <div class="contig-header">
+            <strong>Contig {{ loop.index }}</strong>
+            <span class="contig-length">Longueur: {{ contig.length }} bases</span>
+          </div>
+          <div class="contig-sequence">
+            <pre>{{ contig.sequence }}</pre>
+          </div>
+          <div class="contig-details">
+            <p><strong>Raison d'arrêt:</strong> {{ contig.ended_reason }}</p>
+            {% if contig.branch_options %}
+              <p><strong>Options de branchement:</strong> 
+                {% for opt in contig.branch_options %}
+                  <code>{{ opt }}</code>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </p>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>Aucun contig généré.</p>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Lot 2 · Alignement (LCS){% endblock %}
+{% block content %}
+<div class="lot-eyebrow">Lot 2</div>
+<h1>Alignement par LCS (Longest Common Subsequence)</h1>
+
+<p class="lede">
+  Trouvez la plus longue sous-séquence commune entre deux reads.
+  Cette approche utilise la programmation dynamique en O(n·m).
+</p>
+
+<form method="POST" class="form-section">
+  <div class="form-group">
+    <label for="seq1">Séquence 1:</label>
+    <textarea id="seq1" name="seq1" rows="4" placeholder="ACGTACGT..." required></textarea>
+  </div>
+  
+  <div class="form-group">
+    <label for="seq2">Séquence 2:</label>
+    <textarea id="seq2" name="seq2" rows="4" placeholder="ACGTACGT..." required></textarea>
+  </div>
+  
+  <button type="submit" class="btn">Aligner</button>
+</form>
+
+{% if error %}
+  <div class="error-box">
+    <strong>Erreur:</strong> {{ error }}
+  </div>
+{% endif %}
+
+{% if result %}
+  <div class="result-section">
+    <h2>Résultats</h2>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Score LCS</div>
+        <div class="stat-value">{{ result.score }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Longueur Seq1</div>
+        <div class="stat-value">{{ result.length_seq1 }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Longueur Seq2</div>
+        <div class="stat-value">{{ result.length_seq2 }}</div>
+      </div>
+    </div>
+    
+    <h3>Alignement</h3>
+    <div class="alignment-box">
+      <pre>{{ result.pretty_print }}</pre>
+    </div>
+    
+    <h3>Détails de l'alignement</h3>
+    <table class="results-table">
+      <tr>
+        <th>Propriété</th>
+        <th>Valeur</th>
+      </tr>
+      <tr>
+        <td>Début du chevauchement dans Seq1</td>
+        <td>Position {{ result.overlap_start_seq1 }}</td>
+      </tr>
+      <tr>
+        <td>Début du chevauchement dans Seq2</td>
+        <td>Position {{ result.overlap_start_seq2 }}</td>
+      </tr>
+      <tr>
+        <td>Pourcentage d'identité</td>
+        <td>{{ "%.1f"|format((result.score / result.length_seq1) * 100) }}% (basé sur Seq1)</td>
+      </tr>
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

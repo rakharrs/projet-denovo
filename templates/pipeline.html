@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASG-2026 - Pipeline d'assemblage de novo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="seq">ASG</span>-2026</div>
+    <div style="font-size: 0.9rem; color: rgba(255,255,255,0.8);">Pipeline d'assemblage de novo</div>
+  </div>
+
+  <main>
+
+    <!-- Input Form Section -->
+    <section id="input-section" class="section-card">
+      <h2>Configuration & Upload</h2>
+      
+      <form id="pipeline-form" enctype="multipart/form-data">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="file">Fichier FASTQ/FASTA :</label>
+            <input type="file" id="file" name="file" accept=".fastq,.fq,.fasta,.fa,.fna,.txt" required>
+            <small>Ou <a href="#" onclick="downloadToyDataset(event)">téléchargez le toy dataset</a></small>
+          </div>
+
+          <div class="form-group">
+            <label for="k">Longueur k (k-mers):</label>
+            <input type="number" id="k" name="k" value="31" min="1" max="127">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="display: none;">
+            <label for="bloom_size">Taille Bloom Filter (bits):</label>
+            <input type="number" id="bloom_size" name="bloom_size" value="10000" min="1000" max="1000000">
+          </div>
+
+          <div class="form-group" style="display: none;">
+            <label for="bloom_hashes">Nombre de fonctions de hachage:</label>
+            <input type="number" id="bloom_hashes" name="bloom_hashes" value="7" min="1" max="20">
+          </div>
+
+          <div class="form-group">
+            <label for="solid_threshold">Seuil de solidité (fréquence min):</label>
+            <input type="number" id="solid_threshold" name="solid_threshold" value="2" min="1" max="100">
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.5rem;">
+          <button type="submit" class="btn btn-primary" id="submit-btn">▶ Lancer l'analyse</button>
+          <button style="display: none;" type="button" class="btn btn-secondary" onclick="runDemo()">▶ Démo (toy dataset)</button>
+          <button style="display: none;" type="button" class="btn btn-secondary" onclick="downloadFasta()">▶ Télécharger en FASTA</button>
+        </div>
+      </form>
+
+      <div id="loading-spinner" style="display: none; margin-top: 2rem; text-align: center;">
+        <div class="spinner"></div>
+        <p>Traitement en cours...</p>
+      </div>
+
+      <div id="error-box" class="error-box" style="display: none; margin-top: 1rem;"></div>
+    </section>
+
+    <!-- Results Section -->
+    <section id="results-section" style="display: none;" class="section-card">
+      <h2>Résultats du pipeline</h2>
+      
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-button active" data-tab="qc-tab">Contrôle qualité</button>
+        <button class="tab-button" data-tab="assembly-tab">Assemblage</button>
+        <button class="tab-button" data-tab="alignment-tab">Alignement</button>
+      </div>
+
+      <!-- QC Tab -->
+      <div id="qc-tab" class="tab-content active">
+        <h3>Analyse de qualité</h3>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Nombre de reads</div>
+            <div class="stat-value" id="qc-num-reads">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Bases totales</div>
+            <div class="stat-value" id="qc-total-bases">—</div>
+          </div>
+          <div class="stat-card" style="display: none;">
+            <div class="stat-label">Longueur min</div>
+            <div class="stat-value" id="qc-min-length">—</div>
+          </div>
+          <div class="stat-card" style="display: none;">
+            <div class="stat-label">Longueur max</div>
+            <div class="stat-value" id="qc-max-length">—</div>
+          </div>
+          <div class="stat-card" style="display: none;">
+            <div class="stat-label">Longueur moyenne</div>
+            <div class="stat-value" id="qc-avg-length">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">K-mers distincts</div>
+            <div class="stat-value" id="qc-unique-kmers">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">K-mers uniques</div>
+            <div class="stat-value" id="qc-singletons">—</div>
+          </div>
+          <div class="stat-card" style="display: none;">
+            <div class="stat-label">Bruit estimé</div>
+            <div class="stat-value" id="qc-noise-ratio">—</div>
+          </div>
+        </div>
+
+        <h4>Histogramme de fréquence des k-mers</h4>
+        <div id="histogram-container" style="background: #f9f9f9; padding: 1rem; border-radius: 4px; overflow-x: auto;">
+          <table class="results-table">
+            <tr>
+              <th>Fréquence</th>
+              <th>Nombre de k-mers distincts</th>
+            </tr>
+            <tbody id="histogram-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Assembly Tab -->
+      <div id="assembly-tab" class="tab-content">
+        <h3>Résultats d'assemblage</h3>
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Nombre de contigs</div>
+            <div class="stat-value" id="asm-num-contigs">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">K-mers solides</div>
+            <div class="stat-value" id="asm-solid-kmers">—</div>
+          </div>
+          <div class="stat-card" style="display: none;">
+            <div class="stat-label">Taux FP théorique</div>
+            <div class="stat-value" id="asm-fp-rate">—</div>
+          </div>
+        </div>
+
+        <h4>Contigs assemblés</h4>
+        <div id="contigs-container"></div>
+      </div>
+
+      <!-- Alignment Tab -->
+      <div id="alignment-tab" class="tab-content">
+        <h3>Alignement de séquences</h3>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="align-seq1-select">Séquence 1:</label>
+            <select id="align-seq1-select">
+              <option value="">Sélectionnez une séquence...</option>
+            </select>
+            <textarea id="align-seq1-text" placeholder="Ou entrez manuellement..." rows="3" style="margin-top: 0.5rem;"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="align-seq2-select">Séquence 2:</label>
+            <select id="align-seq2-select">
+              <option value="">Sélectionnez une séquence...</option>
+            </select>
+            <textarea id="align-seq2-text" placeholder="Ou entrez manuellement..." rows="3" style="margin-top: 0.5rem;"></textarea>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="runAlignment()">▶ Aligner</button>
+
+        <div id="alignment-result" style="display: none; margin-top: 1.5rem;">
+          <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <div class="stat-card">
+              <div class="stat-label">Score LCS</div>
+              <div class="stat-value" id="align-score">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">% d'identité</div>
+              <div class="stat-value" id="align-identity">—</div>
+            </div>
+          </div>
+
+          <h4>Alignement visuel</h4>
+          <div class="alignment-box">
+            <pre id="alignment-text"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>hola · Projet ASG-2026 · 1999 </footer>
+
+  <script>
+    const form = document.getElementById('pipeline-form');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const errorBox = document.getElementById('error-box');
+    const resultsSection = document.getElementById('results-section');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Tab switching
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabId = button.getAttribute('data-tab');
+        tabButtons.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(form);
+      loadingSpinner.style.display = 'block';
+      errorBox.style.display = 'none';
+      resultsSection.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/pipeline', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Erreur inconnue');
+        }
+
+        displayResults(data);
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (error) {
+        errorBox.textContent = '❌ ' + error.message;
+        errorBox.style.display = 'block';
+      } finally {
+        loadingSpinner.style.display = 'none';
+      }
+    });
+
+    function displayResults(data) {
+      // QC Tab
+      document.getElementById('qc-num-reads').textContent = data.qc.num_reads;
+      document.getElementById('qc-total-bases').textContent = data.qc.total_bases;
+      document.getElementById('qc-min-length').textContent = data.qc.min_length;
+      document.getElementById('qc-max-length').textContent = data.qc.max_length;
+      document.getElementById('qc-avg-length').textContent = data.qc.avg_length;
+      document.getElementById('qc-unique-kmers').textContent = data.qc.unique_kmers;
+      document.getElementById('qc-singletons').textContent = data.qc.singleton_kmers;
+      document.getElementById('qc-noise-ratio').textContent = `${data.qc.noise_ratio.toFixed(1)}%`;
+
+      // Histogram
+      const histBody = document.getElementById('histogram-table-body');
+      histBody.innerHTML = '';
+      Object.entries(data.qc.histogram).forEach(([freq, count]) => {
+        const row = `<tr><td>${freq}</td><td>${count}</td></tr>`;
+        histBody.innerHTML += row;
+      });
+
+      // Assembly Tab
+      document.getElementById('asm-num-contigs').textContent = data.assembly.num_contigs;
+      document.getElementById('asm-solid-kmers').textContent = data.assembly.num_solid_kmers;
+      document.getElementById('asm-fp-rate').textContent = data.assembly.bloom_fp_estimate;
+
+      // Contigs
+      const contigsContainer = document.getElementById('contigs-container');
+      contigsContainer.innerHTML = '';
+      data.assembly.contigs.forEach((contig, i) => {
+        const card = document.createElement('div');
+        card.className = 'contig-card';
+        card.innerHTML = `
+          <div class="contig-header">
+            <strong>Contig ${i + 1}</strong>
+            <span class="contig-length">Longueur: ${contig.length} bp</span>
+            ${i === 0 ? '<span class="badge">Largest</span>' : ''}
+          </div>
+          <div class="contig-sequence">
+            <pre>${contig.sequence}</pre>
+          </div>
+          <div class="contig-details">
+            <p><strong>Raison d'arrêt:</strong> <span class="reason-badge ${contig.ended_reason}">${contig.ended_reason}</span></p>
+          </div>
+        `;
+        contigsContainer.appendChild(card);
+      });
+
+      // Alignment Tab - populate dropdowns
+      const seq1Select = document.getElementById('align-seq1-select');
+      const seq2Select = document.getElementById('align-seq2-select');
+      seq1Select.innerHTML = '<option value="">Sélectionnez une séquence...</option>';
+      seq2Select.innerHTML = '<option value="">Sélectionnez une séquence...</option>';
+
+      Object.entries(data.alignment.sequences).forEach(([key, item]) => {
+        const opt1 = document.createElement('option');
+        opt1.value = item.sequence;
+        opt1.textContent = item.label;
+        seq1Select.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = item.sequence;
+        opt2.textContent = item.label;
+        seq2Select.appendChild(opt2);
+      });
+
+      // Add manual entry option
+      seq1Select.addEventListener('change', () => {
+        if (seq1Select.value) {
+          document.getElementById('align-seq1-text').value = seq1Select.value;
+        }
+      });
+      seq2Select.addEventListener('change', () => {
+        if (seq2Select.value) {
+          document.getElementById('align-seq2-text').value = seq2Select.value;
+        }
+      });
+    }
+
+    async function runAlignment() {
+      const seq1 = document.getElementById('align-seq1-text').value.trim();
+      const seq2 = document.getElementById('align-seq2-text').value.trim();
+
+      if (!seq1 || !seq2) {
+        alert('Veuillez entrer ou sélectionner deux séquences.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/align', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seq1, seq2 })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        document.getElementById('align-score').textContent = data.score;
+        document.getElementById('align-identity').textContent = data.percent_identity;
+
+        const alignText = `${data.aligned_seq1}\n${data.match_line}\n${data.aligned_seq2}`;
+        document.getElementById('alignment-text').textContent = alignText;
+        document.getElementById('alignment-result').style.display = 'block';
+
+      } catch (error) {
+        alert('Erreur lors de l\'alignement: ' + error.message);
+      }
+    }
+
+    async function runDemo() {
+      loadingSpinner.style.display = 'block';
+      errorBox.style.display = 'none';
+      resultsSection.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/demo');
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error);
+        }
+
+        displayResults(data);
+        resultsSection.style.display = 'block';
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+      } catch (error) {
+        errorBox.textContent = '❌ ' + error.message;
+        errorBox.style.display = 'block';
+      } finally {
+        loadingSpinner.style.display = 'none';
+      }
+    }
+
+    async function downloadFasta() {
+      const fileInput = document.getElementById('file');
+      if (!fileInput.files.length) {
+        alert('Veuillez sélectionner un fichier d entrée avant de télécharger le FASTA.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      
+      try {
+        const response = await fetch('/api/convert_fasta', {
+          method: 'POST',
+          body: formData
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erreur lors de la conversion en FASTA');
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileInput.files[0].name.replace(/\.[^/.]+$/, '') + '.fasta';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        alert('Erreur lors de la conversion en FASTA: ' + error.message);
+      }
+    }
+
+    function downloadToyDataset(e) {
+      e.preventDefault();
+      window.location.href = '/api/toy_dataset';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ASG-2026{% endblock %} · Pipeline d'assemblage de novo</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="seq">ASG</span>-2026</div>
+    <nav>
+      <a href="{{ url_for('index') }}" class="{% if active == 'index' %}active{% endif %}">Accueil</a>
+      <a href="{{ url_for('lot1') }}" class="{% if active == 'lot1' %}active{% endif %}">Lot 1 · Ingestion</a>
+      <a href="{{ url_for('lot2') }}" class="{% if active == 'lot2' %}active{% endif %}">Lot 2 · Alignement</a>
+      <a href="{{ url_for('lot3') }}" class="{% if active == 'lot3' %}active{% endif %}">Lot 3 · Assemblage</a>
+    </nav>
+  </div>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>Prototype pédagogique · Projet ASG-2026 · Assemblage de novo par filtre de Bloom</footer>
+</body>
+</html>

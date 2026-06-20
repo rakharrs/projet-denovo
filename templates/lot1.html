@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Lot 1 · Ingestion &amp; Qualité{% endblock %}
+{% block content %}
+<div class="lot-eyebrow">Lot 1</div>
+<h1>Ingestion &amp; Analyse de granularité (k-mers)</h1>
+
+<p class="lede">
+  Téléchargez un fichier FASTQ pour:
+  <ul>
+    <li>Vérifier le format et le nombre de reads</li>
+    <li>Analyser la fréquence des k-mers</li>
+    <li>Générer un histogramme pour identifier les k-mers "solides"</li>
+  </ul>
+</p>
+
+<form method="POST" enctype="multipart/form-data" class="form-section">
+  <div class="form-group">
+    <label for="file">Fichier FASTQ/FQ:</label>
+    <input type="file" id="file" name="file" accept=".fastq,.fq,.txt" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="k">Longueur k (taille des k-mers):</label>
+    <input type="number" id="k" name="k" value="15" min="1" max="50">
+  </div>
+  
+  <button type="submit" class="btn">Analyser</button>
+</form>
+
+{% if error %}
+  <div class="error-box">
+    <strong>Erreur:</strong> {{ error }}
+  </div>
+{% endif %}
+
+{% if result %}
+  <div class="result-section">
+    <h2>Résultats</h2>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Nombre de reads</div>
+        <div class="stat-value">{{ result.num_reads }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">K-mers distincts (k={{ result.k }})</div>
+        <div class="stat-value">{{ result.unique_kmers }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total d'occurrences</div>
+        <div class="stat-value">{{ result.total_kmers }}</div>
+      </div>
+    </div>
+    
+    <h3>Histogramme de fréquence</h3>
+    <p>Nombre de k-mers distincts ayant chaque fréquence:</p>
+    <table class="results-table">
+      <tr>
+        <th>Fréquence</th>
+        <th>Nombre de k-mers distincts</th>
+      </tr>
+      {% for freq, count in result.histogram.items() %}
+        <tr>
+          <td>{{ freq }}</td>
+          <td>{{ count }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+    
+    <h3>Top 10 k-mers les plus fréquents</h3>
+    <table class="results-table">
+      <tr>
+        <th>K-mer</th>
+        <th>Fréquence</th>
+      </tr>
+      {% for item in result.top_kmers %}
+        <tr>
+          <td class="mono">{{ item.kmer }}</td>
+          <td>{{ item.count }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  </div>
+{% endif %}
+{% endblock %}

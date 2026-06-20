@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Lot 3 · Démo - Toy Dataset{% endblock %}
+{% block content %}
+<div class="lot-eyebrow">Lot 3 · Démo</div>
+<h1>Assemblage Toy Dataset</h1>
+
+<p class="lede">
+  Résultats d'assemblage sur le jeu de données jouet (~300 bases de référence,
+  fragmenté en reads chevauchants avec erreurs 1%).
+</p>
+
+{% if result %}
+  <div class="result-section">
+    <h2>Résumé</h2>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Nombre de reads</div>
+        <div class="stat-value">{{ result.num_reads }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Longueur référence</div>
+        <div class="stat-value">{{ result.reference_length }} bp</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Nombre de contigs</div>
+        <div class="stat-value">{{ result.num_contigs }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">K-mers solides</div>
+        <div class="stat-value">{{ result.num_solid_kmers }}</div>
+      </div>
+      {% if result.identity is defined %}
+        <div class="stat-card {% if result.identity_pass %}pass{% else %}fail{% endif %}">
+          <div class="stat-label">Identité du plus grand contig</div>
+          <div class="stat-value">{{ "%.1f"|format(result.identity) }}%</div>
+        </div>
+      {% endif %}
+    </div>
+    
+    <div class="validation-box" style="margin-top: 2rem;">
+      <h3>Validation (Clause de recette)</h3>
+      {% if result.identity is defined %}
+        {% if result.identity_pass %}
+          <div class="validation-pass">
+            ✓ <strong>SUCCÈS:</strong> Identité > 98% 
+            ({{ "%.1f"|format(result.identity) }}%)
+          </div>
+        {% else %}
+          <div class="validation-fail">
+            ✗ <strong>ÉCHEC:</strong> Identité insuffisante 
+            ({{ "%.1f"|format(result.identity) }}% < 98%)
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+    
+    <h3>Paramètres</h3>
+    <ul>
+      <li><strong>k:</strong> {{ result.k }}</li>
+      <li><strong>Seuil de solidité:</strong> {{ result.solid_threshold }}</li>
+    </ul>
+    
+    <h3>Contigs assemblés</h3>
+    {% if result.contigs %}
+      {% for contig in result.contigs %}
+        <div class="contig-card">
+          <div class="contig-header">
+            <strong>Contig {{ loop.index }}</strong>
+            <span class="contig-length">Longueur: {{ contig.length }} bp</span>
+            {% if loop.index == 1 %}
+              <span class="badge">Largest</span>
+            {% endif %}
+          </div>
+          <div class="contig-sequence">
+            <pre>{{ contig.sequence }}</pre>
+          </div>
+          <div class="contig-details">
+            <p><strong>Raison d'arrêt:</strong> 
+              <span class="reason-badge {{ contig.ended_reason }}">
+                {{ contig.ended_reason }}
+              </span>
+            </p>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>Aucun contig généré.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div style="margin-top: 2rem; padding: 1rem; background: #fffacd; border-radius: 4px;">
+  <strong>📝 Note:</strong> Le toy dataset est générateur déterministe 
+  (seed fixe) pour faciliter les tests reproducibles. Chaque exécution donne 
+  les mêmes résultats.
+</div>
+{% endblock %}

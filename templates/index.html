@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Accueil{% endblock %}
+{% block content %}
+<div class="lot-eyebrow">Projet ASG-2026</div>
+<h1>Pipeline d'assemblage de novo</h1>
+<p class="lede">
+  Reconstruction d'une sequence consensus a partir de fragments courts (reads),
+  sans alignement global couteux : decoupage en k-mers, alignement local par
+  programmation dynamique, puis assemblage memory-efficient via un Filtre de
+  Bloom (approche type Minia 2).
+</p>
+
+<div class="grid-3">
+  <a href="{{ url_for('lot1') }}" class="lot-link-card">
+    <div class="num">Lot 1</div>
+    <h3>Ingestion &amp; qualite</h3>
+    <p>FASTQ &rarr; FASTA, decoupage en k-mers, histogramme de frequence.</p>
+  </a>
+  <a href="{{ url_for('lot2') }}" class="lot-link-card">
+    <div class="num">Lot 2</div>
+    <h3>Alignement (LCS)</h3>
+    <p>Plus longue sous-sequence commune entre deux reads, programmation dynamique.</p>
+  </a>
+  <a href="{{ url_for('lot3') }}" class="lot-link-card">
+    <div class="num">Lot 3</div>
+    <h3>Assemblage par Bloom Filter</h3>
+    <p>Traversee on-the-fly du graphe de de Bruijn conceptuel.</p>
+  </a>
+</div>
+
+<h2>Jeu de donnees jouet</h2>
+<p class="lede" style="margin-bottom:0.8rem;">
+  Une courte sequence de reference connue (300 bases), fragmentee en reads
+  chevauchants avec un taux d'erreur de 1%, pour valider le pipeline de bout
+  en bout (clause de recette : identite &gt; 98% a partir des reads).
+</p>
+<a class="btn" href="{{ url_for('download_toy_dataset') }}">Telecharger toy_dataset.fastq</a>
+<a class="btn btn-secondary" href="{{ url_for('lot3_demo') }}">Lancer directement l'assemblage sur ce jeu de donnees</a>
+{% endblock %}
